@@ -34,7 +34,10 @@ PARSER = argparse.ArgumentParser(
 )
 
 PARSER.add_argument(
-    "input_folder", type=str, help="Input folder containing the LaTeX code."
+    "input_folder",
+    type=str,
+    help=("Input folder containing the LaTeX code (Or a path to the "
+          "configuration file).")
 )
 
 PARSER.add_argument(

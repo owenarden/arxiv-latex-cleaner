@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import subprocess
+import json
 
 from PIL import Image
 
@@ -302,13 +303,38 @@ def _split_all_files(parameters):
   return file_splits
 
 
-def _create_out_folder(input_folder):
+def _create_out_folder(parameters):
   """Creates the output folder, erasing it if existed."""
-  out_folder = input_folder.rstrip(os.sep) + '_arXiv'
+  out_folder = (parameters['output_folder']
+    if parameters['output_folder'] is not None
+    else ('arXiv_' + os.path.basename(parameters['input_folder'])))
+
+  out_folder_base = (parameters['output_folder_base']
+    if parameters['output_folder_base'] is not None
+    else os.getcwd())
+
+  out_folder = os.path.join(out_folder_base, out_folder)
   _create_dir_erase_if_exists(out_folder)
 
   return out_folder
 
+def _parse_config_file(cfgFilePath, parameters):
+  cfgContent = _read_file_content(cfgFilePath)
+  cfgJson = json.loads(''.join(cfgContent))
+  parameters['input_folder'] = os.path.abspath(
+    os.path.join(os.path.split(cfgFilePath)[0], cfgJson['input_folder']))
+  parameters['output_folder_base'] = os.path.abspath(
+    os.path.join(os.path.split(cfgFilePath)[0], cfgJson['output_folder_base']))
+
+  if 'append_to_delete' in cfgJson:
+    parameters['to_delete'] += cfgJson['append_to_delete']
+
+  parameters.update({
+    'output_folder' : cfgJson['output_folder'] if 'output_folder' in cfgJson else None,
+    'append_file_to_copy' : cfgJson['append_file_to_copy'] if 'append_file_to_copy' in cfgJson else None,
+    'append_folder_to_copy' : cfgJson['append_folder_to_copy'] if 'append_folder_to_copy' in cfgJson else None,
+    'copied_file_keyword_replace' : cfgJson['copied_file_keyword_replace'] if 'copied_file_keyword_replace' in cfgJson else None,
+  })
 
 def run_arxiv_cleaner(parameters):
   """Core of the code, runs the actual arXiv cleaner."""
@@ -318,10 +344,17 @@ def run_arxiv_cleaner(parameters):
           '.dvi$', '.synctex.gz$', '~$', '.backup$', '.gitignore$',
           '.DS_Store$', '.svg$', '^.idea'
       ],
-      'figures_to_copy_if_referenced': ['.png$', '.jpg$', '.jpeg$', '.pdf$']
+      'figures_to_copy_if_referenced': ['.png$', '.jpg$', '.jpeg$', '.pdf$'],
+      'output_folder' : None,
+      'append_file_to_copy' : None,
+      'append_folder_to_copy' : None,
+      'copied_file_keyword_replace' : None,
   })
 
-  parameters['output_folder'] = _create_out_folder(parameters['input_folder'])
+  if parameters['input_folder'].endswith('.alccfg.json'):
+    _parse_config_file(os.path.abspath(parameters['input_folder']), parameters)
+
+  parameters['output_folder'] = _create_out_folder(parameters)
 
   splits = _split_all_files(parameters)
 
@@ -346,3 +379,21 @@ def run_arxiv_cleaner(parameters):
     _copy_file(non_tex_file, parameters)
 
   _resize_and_copy_figures_if_referenced(parameters, full_content, splits)
+
+  if parameters['append_file_to_copy'] is not None:
+    for file in parameters['append_file_to_copy']:
+      _copy_file(file, parameters)
+
+  if parameters['append_folder_to_copy'] is not None:
+    for folder in parameters['append_folder_to_copy']:
+      for fileName in _list_all_files(os.path.join(parameters['input_folder'], folder)):
+        fileName = os.path.join(folder, fileName)
+        _copy_file(fileName, parameters)
+
+  if parameters['copied_file_keyword_replace'] is not None:
+    for fileItem in parameters['copied_file_keyword_replace']:
+      filePath = os.path.join(parameters['output_folder'], fileItem['filename'])
+      fileContent = ''.join(_read_file_content(filePath))
+      for matItem in fileItem['match_rules']:
+        fileContent = fileContent.replace(matItem['key'], matItem['to'])
+      _write_file_content(fileContent, filePath)
