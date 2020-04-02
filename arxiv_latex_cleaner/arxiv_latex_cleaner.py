@@ -321,10 +321,11 @@ def _create_out_folder(parameters):
 def _parse_config_file(cfgFilePath, parameters):
   cfgContent = _read_file_content(cfgFilePath)
   cfgJson = json.loads(''.join(cfgContent))
+  parameters['config_parent_path'] = os.path.split(cfgFilePath)[0]
   parameters['input_folder'] = os.path.abspath(
-    os.path.join(os.path.split(cfgFilePath)[0], cfgJson['input_folder']))
+    os.path.join(parameters['config_parent_path'], cfgJson['input_folder']))
   parameters['output_folder_base'] = os.path.abspath(
-    os.path.join(os.path.split(cfgFilePath)[0], cfgJson['output_folder_base']))
+    os.path.join(parameters['config_parent_path'], cfgJson['output_folder_base']))
 
   if 'append_to_delete' in cfgJson:
     parameters['to_delete'] += cfgJson['append_to_delete']
@@ -334,6 +335,8 @@ def _parse_config_file(cfgFilePath, parameters):
     'append_file_to_copy' : cfgJson['append_file_to_copy'] if 'append_file_to_copy' in cfgJson else None,
     'append_folder_to_copy' : cfgJson['append_folder_to_copy'] if 'append_folder_to_copy' in cfgJson else None,
     'copied_file_keyword_replace' : cfgJson['copied_file_keyword_replace'] if 'copied_file_keyword_replace' in cfgJson else None,
+    'pre_cmds' : cfgJson['pre_cmds'] if 'pre_cmds' in cfgJson else None,
+    'post_cmds' : cfgJson['post_cmds'] if 'post_cmds' in cfgJson else None,
   })
 
 def run_arxiv_cleaner(parameters):
@@ -345,14 +348,33 @@ def run_arxiv_cleaner(parameters):
           '.DS_Store$', '.svg$', '^.idea'
       ],
       'figures_to_copy_if_referenced': ['.png$', '.jpg$', '.jpeg$', '.pdf$'],
+      'config_parent_path' : None,
       'output_folder' : None,
       'append_file_to_copy' : None,
       'append_folder_to_copy' : None,
       'copied_file_keyword_replace' : None,
+      'pre_cmds' : None,
+      'post_cmds' : None,
   })
 
   if parameters['input_folder'].endswith('.alccfg.json'):
     _parse_config_file(os.path.abspath(parameters['input_folder']), parameters)
+
+  if parameters['pre_cmds'] is not None:
+    with open('arXiv_latex_cleaner_pre_cmds.log', 'w') as logFile:
+      for preCmd in parameters['pre_cmds']:
+        wdPath = os.path.abspath(os.path.join(parameters['config_parent_path'], preCmd['cwd']))
+        logFile.write('===============\n')
+        logFile.write(wdPath + '\n')
+        logFile.write(' '.join(preCmd['cmd']) + '\n')
+        logFile.write('===============\n\n')
+        logFile.flush()
+
+        p = subprocess.Popen(preCmd['cmd'], cwd=wdPath, stdout=logFile)
+        p.wait()
+
+        logFile.write('\n\n')
+        logFile.flush()
 
   parameters['output_folder'] = _create_out_folder(parameters)
 
@@ -387,8 +409,9 @@ def run_arxiv_cleaner(parameters):
   if parameters['append_folder_to_copy'] is not None:
     for folder in parameters['append_folder_to_copy']:
       for fileName in _list_all_files(os.path.join(parameters['input_folder'], folder)):
-        fileName = os.path.join(folder, fileName)
-        _copy_file(fileName, parameters)
+        if not any((re.findall(rem, fileName) for rem in parameters['to_delete'])):
+          fileName = os.path.join(folder, fileName)
+          _copy_file(fileName, parameters)
 
   if parameters['copied_file_keyword_replace'] is not None:
     for fileItem in parameters['copied_file_keyword_replace']:
@@ -397,3 +420,19 @@ def run_arxiv_cleaner(parameters):
       for matItem in fileItem['match_rules']:
         fileContent = fileContent.replace(matItem['key'], matItem['to'])
       _write_file_content(fileContent, filePath)
+
+  if parameters['post_cmds'] is not None:
+    with open('arXiv_latex_cleaner_post_cmds.log', 'w') as logFile:
+      for postCmd in parameters['post_cmds']:
+        wdPath = os.path.abspath(os.path.join(parameters['config_parent_path'], postCmd['cwd']))
+        logFile.write('===============\n')
+        logFile.write(wdPath + '\n')
+        logFile.write(' '.join(postCmd['cmd']) + '\n')
+        logFile.write('===============\n\n')
+        logFile.flush()
+
+        p = subprocess.Popen(postCmd['cmd'], cwd=wdPath, stdout=logFile)
+        p.wait()
+
+        logFile.write('\n\n')
+        logFile.flush()
