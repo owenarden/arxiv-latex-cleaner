@@ -1,4 +1,4 @@
-# coding=utf-8
+
 # Copyright 2018 The Google Research Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -305,13 +305,9 @@ def _split_all_files(parameters):
 
 def _create_out_folder(parameters):
   """Creates the output folder, erasing it if existed."""
-  out_folder = (parameters['output_folder']
-    if parameters['output_folder'] is not None
-    else ('arXiv_' + os.path.basename(parameters['input_folder'])))
+  out_folder = (parameters['output_folder'] if parameters['output_folder'] is not None else ('arXiv_' + os.path.basename(parameters['input_folder'])))
 
-  out_folder_base = (parameters['output_folder_base']
-    if parameters['output_folder_base'] is not None
-    else os.getcwd())
+  out_folder_base = (parameters['output_folder_base'] if parameters['output_folder_base'] is not None else os.getcwd())
 
   out_folder = os.path.join(out_folder_base, out_folder)
   _create_dir_erase_if_exists(out_folder)
@@ -364,13 +360,15 @@ def run_arxiv_cleaner(parameters):
     with open('arXiv_latex_cleaner_pre_cmds.log', 'w') as logFile:
       for preCmd in parameters['pre_cmds']:
         wdPath = os.path.abspath(os.path.join(parameters['config_parent_path'], preCmd['cwd']))
+        cmdEnv = preCmd['env']
         logFile.write('===============\n')
+        logFile.write('ENV := ' + cmdEnv + '\n')
         logFile.write(wdPath + '\n')
         logFile.write(' '.join(preCmd['cmd']) + '\n')
         logFile.write('===============\n\n')
         logFile.flush()
 
-        p = subprocess.Popen(preCmd['cmd'], cwd=wdPath, stdout=logFile)
+        p = subprocess.Popen(preCmd['cmd'], cwd=wdPath, stdout=logFile, env=cmdEnv)
         p.wait()
 
         logFile.write('\n\n')
@@ -425,13 +423,15 @@ def run_arxiv_cleaner(parameters):
     with open('arXiv_latex_cleaner_post_cmds.log', 'w') as logFile:
       for postCmd in parameters['post_cmds']:
         wdPath = os.path.abspath(os.path.join(parameters['config_parent_path'], postCmd['cwd']))
+        cmdEnv = postCmd['env']
         logFile.write('===============\n')
+        logFile.write('ENV := ' + cmdEnv + '\n')
         logFile.write(wdPath + '\n')
         logFile.write(' '.join(postCmd['cmd']) + '\n')
         logFile.write('===============\n\n')
         logFile.flush()
 
-        p = subprocess.Popen(postCmd['cmd'], cwd=wdPath, stdout=logFile)
+        p = subprocess.Popen(postCmd['cmd'], cwd=wdPath, stdout=logFile, env=cmdEnv))
         p.wait()
 
         logFile.write('\n\n')
