@@ -313,6 +313,9 @@ def _create_out_folder(parameters):
     if parameters['output_folder_base'] is not None
     else os.getcwd())
 
+  out_folder = os.path.join(out_folder_base, out_folder)
+  _create_dir_erase_if_exists(out_folder)
+
   return out_folder
 
 def _parse_config_file(cfgFilePath, parameters):
