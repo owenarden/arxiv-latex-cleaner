@@ -1,4 +1,4 @@
-
+# coding=utf-8
 # Copyright 2018 The Google Research Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -305,12 +305,13 @@ def _split_all_files(parameters):
 
 def _create_out_folder(parameters):
   """Creates the output folder, erasing it if existed."""
-  out_folder = (parameters['output_folder'] if parameters['output_folder'] is not None else ('arXiv_' + os.path.basename(parameters['input_folder'])))
+  out_folder = (parameters['output_folder']
+    if parameters['output_folder'] is not None
+    else ('arXiv_' + os.path.basename(parameters['input_folder'])))
 
-  out_folder_base = (parameters['output_folder_base'] if parameters['output_folder_base'] is not None else os.getcwd())
-
-  out_folder = os.path.join(out_folder_base, out_folder)
-  _create_dir_erase_if_exists(out_folder)
+  out_folder_base = (parameters['output_folder_base']
+    if parameters['output_folder_base'] is not None
+    else os.getcwd())
 
   return out_folder
 
